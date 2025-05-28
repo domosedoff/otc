@@ -1,5 +1,5 @@
 // backend/src/emitters/emitters.service.ts
-import { Injectable, Inject, forwardRef } from '@nestjs/common'; // <-- Убедись, что Inject и forwardRef импортированы
+import { Injectable, BadRequestException } from '@nestjs/common'; // Убраны NotFoundException, BadRequestException, если не используются
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Emitter } from './entities/emitter.entity';
@@ -10,7 +10,7 @@ import { PublicEmitterSummary } from './dto/public-emitters-list.dto';
 import { PublicEmitterDetailsDto } from './dto/public-emitter-details.dto';
 import { SubscribesService } from '../subscribes/subscribes.service';
 import { EmitterProfileDto } from './dto/emitter-profile.dto';
-import { differenceInDays } from 'date-fns';
+import { differenceInDays, isAfter, isSameDay } from 'date-fns'; // <-- ИСПРАВЛЕНИЕ: Добавлены isAfter, isSameDay
 
 @Injectable()
 export class EmittersService {
@@ -19,7 +19,6 @@ export class EmittersService {
     private readonly emittersRepository: Repository<Emitter>,
     private readonly financialDataService: FinancialDataService,
     private readonly analiticsService: AnaliticsService,
-    @Inject(forwardRef(() => SubscribesService)) // <-- ИСПРАВЛЕНИЕ: ДОБАВЛЕНО ЭТОТ ДЕКОРАТОР
     private readonly subscribesService: SubscribesService,
   ) {}
 
@@ -64,7 +63,7 @@ export class EmittersService {
       where: { emitent_id: id },
     });
     if (!emitter) {
-      throw new Error('Эмитент не найден');
+      throw new BadRequestException('Эмитент не найден');
     }
     Object.assign(emitter, updateData);
     return this.emittersRepository.save(emitter);
@@ -79,11 +78,13 @@ export class EmittersService {
       where: { emitent_id: id },
     });
     if (!emitter) {
-      throw new Error('Эмитент не найден.');
+      throw new BadRequestException('Эмитент не найден.');
     }
 
     if (status === 'rejected' && !reason) {
-      throw new Error('Причина отклонения обязательна для статуса "rejected".');
+      throw new BadRequestException(
+        'Причина отклонения обязательна для статуса "rejected".',
+      );
     }
 
     emitter.status = status;
@@ -316,7 +317,8 @@ export class EmittersService {
             ),
             is_active:
               currentSubscription.payment_status === 'active' &&
-              currentSubscription.end_date >= today,
+              (isAfter(currentSubscription.end_date, today) ||
+                isSameDay(currentSubscription.end_date, today)), // <-- ИСПРАВЛЕНИЕ ЗДЕСЬ
           }
         : undefined,
       analitics: emitter.analitics

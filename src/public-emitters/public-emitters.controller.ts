@@ -9,16 +9,18 @@ import {
   HttpStatus,
   HttpCode,
   BadRequestException,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor, CacheKey } from '@nestjs/cache-manager'; // <-- ИСПРАВЛЕНИЕ: Импорт из @nestjs/cache-manager
 import { EmittersService } from '../emitters/emitters.service';
 import { InvestorsService } from '../investors/investors.service';
 import { AnaliticsService } from '../analitics/analitics.service';
 import { GetPublicEmittersFilterDto } from '../emitters/dto/get-public-emitters-filter.dto';
 import { PublicEmittersListDto } from '../emitters/dto/public-emitters-list.dto';
 import { PublicEmitterDetailsDto } from '../emitters/dto/public-emitter-details.dto';
-// import { TrackInvestorInterestDto } from '@app/investors/dto/track-investor-interest.dto'; // <-- ИСПРАВЛЕННЫЙ ПУТЬ (АБСОЛЮТНЫЙ)
+// import { TrackInvestorInterestDto } from '../investors/dto/track-investor-interest.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { TrackInvestorInterestDto } from 'src/emitters/dto/track-investor-interest.dto';
+import { TrackInvestorInterestDto } from '@app/emitters/dto/track-investor-interest.dto';
 
 @ApiTags('Public Emitters')
 @Controller('emitters')
@@ -136,9 +138,12 @@ export class PublicEmittersController {
     description: 'Список эмитентов успешно получен',
     type: PublicEmittersListDto,
   })
+  @UseInterceptors(CacheInterceptor)
+  @CacheKey('public_emitters_list')
   async getPublicEmitters(
     @Query() filterDto: GetPublicEmittersFilterDto,
   ): Promise<PublicEmittersListDto> {
+    console.log('Fetching public emitters from DB (or cache miss)');
     return this.emittersService.getPublicEmitters(filterDto);
   }
 
@@ -156,9 +161,14 @@ export class PublicEmittersController {
     status: HttpStatus.NOT_FOUND,
     description: 'Эмитент не найден или не утвержден',
   })
+  @UseInterceptors(CacheInterceptor)
+  @CacheKey('public_emitter_details')
   async getPublicEmitterDetails(
     @Param('id') id: string,
   ): Promise<PublicEmitterDetailsDto | null> {
+    console.log(
+      `Fetching public emitter details for ${id} from DB (or cache miss)`,
+    );
     const details = await this.emittersService.getPublicEmitterDetails(id);
     if (!details) {
       throw new BadRequestException('Эмитент не найден или не утвержден.');

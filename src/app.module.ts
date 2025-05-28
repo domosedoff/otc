@@ -1,21 +1,21 @@
 // backend/src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { join } from 'path';
-import { EmittersModule } from './emitters/emitters.module'; // Импорт нашего нового модуля
-import { AuthModule } from './auth/auth.module';
+import { EmittersModule } from './emitters/emitters.module';
 import { AdminModule } from './admin/admin.module';
+import { AuthModule } from './auth/auth.module';
 import { FinancialDataModule } from './financial-data/financial-data.module';
 import { AnaliticsModule } from './analitics/analitics.module';
 import { InvestorsModule } from './investors/investors.module';
-import { PublicEmittersController } from './public-emitters/public-emitters.controller';
 import { PublicEmittersModule } from './public-emitters/public-emitters.module';
 import { SubscribesModule } from './subscribes/subscribes.module';
 import { PaymentsModule } from './payments/payments.module';
-import { SubscriptionsController } from './subscriptions/subscriptions.controller';
+import { CacheModule } from '@nestjs/cache-manager';
+import * as redisStore from 'cache-manager-redis-store';
 
 @Module({
   imports: [
@@ -25,7 +25,7 @@ import { SubscriptionsController } from './subscriptions/subscriptions.controlle
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
+      useFactory: (configService: ConfigService) => {
         const dbTypeFromEnv = configService.get<string>('DB_TYPE');
         const dbHost = configService.get<string>('DB_HOST');
         const dbPortString = configService.get<string>('DB_PORT');
@@ -69,13 +69,25 @@ import { SubscriptionsController } from './subscriptions/subscriptions.controlle
           migrationsTableName: 'typeorm_migrations',
           synchronize: false,
           logging: true,
-        } as TypeOrmModuleOptions;
+        };
       },
       inject: [ConfigService],
     }),
+    CacheModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        store: redisStore,
+        host: configService.get<string>('REDIS_HOST') || 'localhost',
+        port: parseInt(configService.get<string>('REDIS_PORT') || '6379', 10),
+        ttl: 300,
+        // password: configService.get<string>('REDIS_PASSWORD'), // <-- УБЕДИСЬ, ЧТО ЭТО ЗАКОММЕНТИРОВАНО, ЕСЛИ НЕТ ПАРОЛЯ
+      }),
+      inject: [ConfigService],
+      isGlobal: true,
+    }),
     EmittersModule,
-    AuthModule,
     AdminModule,
+    AuthModule,
     FinancialDataModule,
     AnaliticsModule,
     InvestorsModule,
@@ -83,11 +95,7 @@ import { SubscriptionsController } from './subscriptions/subscriptions.controlle
     SubscribesModule,
     PaymentsModule,
   ],
-  controllers: [
-    AppController,
-    PublicEmittersController,
-    SubscriptionsController,
-  ],
+  controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
