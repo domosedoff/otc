@@ -1,0 +1,18 @@
+version: '3.8' # Указывает версию синтаксиса docker-compose
+
+services:
+  postgres_db: # Имя нашего сервиса (контейнера)
+    image: postgres:15 # Используем официальный образ PostgreSQL версии 15. Ты можешь выбрать другую версию, если нужно.
+    container_name: otc_marketplace_db # Имя для контейнера, чтобы его было легче идентифицировать
+    restart: always # Автоматически перезапускать контейнер, если он остановится
+    environment:
+      POSTGRES_USER: otc_user
+      POSTGRES_PASSWORD: Secretyu26061976
+      POSTGRES_DB: otc_dev_db
+    ports:
+      - '5432:5432' # Пробрасывает порт 5432 с твоего компьютера на порт 5432 внутри контейнера
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Создает именованный том 'postgres_data' для сохранения данных БД между перезапусками контейнера
+
+volumes:
+  postgres_data: # Определяет именованный том
